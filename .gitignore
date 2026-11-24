@@ -1,0 +1,15 @@
+# Build output
+out/
+
+# Signing material, never commit
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pass
+keys/
+
+# Python
+__pycache__/
+.venv/
+.ruff_cache/

@@ -1,0 +1,118 @@
+name: build
+
+on:
+  schedule:
+    # every 6 hours, off the full hour to avoid GitHub's peak queue
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: "Build even if this upstream version is already released (creates -tanka.N)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write  # create releases
+  actions: write   # keep the schedule alive
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+env:
+  TAG_SUFFIX: tanka
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Public repos lose their schedule after 60 days without activity.
+      # Re-enabling via the API resets that timer without dummy commits.
+      - name: Keep schedule alive
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable build.yml --repo "$GITHUB_REPOSITORY"
+
+      - name: Decide what to build
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REBUILD: ${{ inputs.rebuild || false }}
+        run: |
+          set -euo pipefail
+          upstream="$(scripts/latest-tag.sh)"
+          base="${upstream}-${TAG_SUFFIX}"
+
+          tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName')"
+          count="$(printf '%s\n' "$tags" | grep -cE "^${base//./\\.}(\.[0-9]+)?$" || true)"
+
+          if [ "$count" -eq 0 ]; then
+            tag="$base"
+          elif [ "$REBUILD" = "true" ]; then
+            tag="${base}.$((count + 1))"
+          else
+            echo "Upstream ${upstream} already released as ${base}, nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Building ${upstream} as ${tag}"
+          {
+            echo "build=true"
+            echo "upstream=${upstream}"
+            echo "tag=${tag}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and sign
+        if: steps.plan.outputs.build == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.KS_PASS }}
+          KEY_PASS: ${{ secrets.KEY_PASS }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          TEMPUS_TAG: ${{ steps.plan.outputs.upstream }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "Secrets KEYSTORE_B64 and KS_PASS must be set" >&2
+            exit 1
+          fi
+          umask 077
+          export KEYSTORE="$RUNNER_TEMP/keystore"
+          trap 'rm -f "$KEYSTORE"' EXIT
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$KEYSTORE"
+          ./build.sh
+
+      - name: Publish release
+        if: steps.plan.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plan.outputs.tag }}
+          UPSTREAM: ${{ steps.plan.outputs.upstream }}
+        run: |
+          set -euo pipefail
+          notes="$(cat <<EOF
+          Tempus ${UPSTREAM} (degoogled flavor) with a custom icon, signed with my own key.
+          Package: com.eddyizm.degoogled.tempus.tanka
+
+          Upstream changelog: https://github.com/eddyizm/tempus/releases/tag/${UPSTREAM}
+
+          Signing certificate:
+          \`\`\`
+          $(cat out/signing-cert.txt)
+          \`\`\`
+          EOF
+          )"
+          gh release create "$TAG" \
+            out/*.apk out/SHA256SUMS out/icon-preview.png \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Tempus ${UPSTREAM#v} (${TAG_SUFFIX})" \
+            --notes "$notes"
