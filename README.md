@@ -92,7 +92,7 @@ Extra arguments to `build.sh` are passed on to `docker build`:
 | Build arg | Default | Description |
 |---|---|---|
 | `ICON_BG` | `#000000` | Icon background colour |
-| `ICON_RADIUS` | `30` | Logo size in dp from center (safe zone max is 33) |
+| `ICON_RADIUS` | `24` | Logo size in dp from center (safe zone max is 33) |
 | `APP_ID_SUFFIX` | `.tanka` | applicationId suffix |
 | `GRADLE_XMX` | `4g` | Gradle JVM heap |
 | `CMDLINE_TOOLS_VERSION` | `13114758` | Android cmdline-tools build number |

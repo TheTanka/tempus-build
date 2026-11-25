@@ -318,7 +318,7 @@ def main() -> None:
     ap.add_argument(
         "--radius",
         type=float,
-        default=30.0,
+        default=24.0,
         help="launcher: max distance in dp from center to logo edge, safe zone is 33 (default: %(default)s)",
     )
     ap.add_argument(

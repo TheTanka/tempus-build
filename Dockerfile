@@ -30,7 +30,7 @@ WORKDIR /work
 COPY scripts/svg2icons.py ./
 COPY logo.svg ./
 ARG ICON_BG=#000000
-ARG ICON_RADIUS=30
+ARG ICON_RADIUS=24
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv run --script svg2icons.py logo.svg out --bg "${ICON_BG}" --radius "${ICON_RADIUS}" \
  && rsvg-convert -w 512 -h 512 out/preview.svg -o out/icon-preview.png \
