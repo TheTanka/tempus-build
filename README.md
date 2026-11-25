@@ -22,7 +22,7 @@ Because the package name differs, it installs **next to** an existing Tempus ins
 ### With Obtainium (automatic updates)
 
 1. In [Obtainium](https://github.com/ImranR98/Obtainium), choose Add App and use this URL: `https://github.com/TheTanka/tempus-build`
-2. Set **Filter APKs by regular expression** to `universal`. Use `arm64-v8a` instead for a smaller download on most modern phones.
+2. Set **Filter APKs by regular expression** to `universal`.
 3. Install. New upstream releases arrive here within about 6 hours plus build time.
 
 If Obtainium shows a version-detection warning, set **Trim version string** to `\d+\.\d+\.\d+`.
@@ -31,12 +31,11 @@ If Obtainium shows a version-detection warning, set **Trim version string** to `
 
 Download an APK from [Releases](https://github.com/TheTanka/tempus-build/releases):
 
-| File                                                | For                                       |
-| --------------------------------------------------- | ----------------------------------------- |
-| `tempus-degoogled-<version>-universal.apk`          | Any device, install this if unsure        |
-| `tempus-degoogled-<version>-arm64-v8a.apk`          | Most phones from roughly the last 8 years |
-| `tempus-degoogled-<version>-armeabi-v7a.apk`        | Older 32-bit phones                       |
-| `tempus-degoogled-<version>-x86_64.apk` / `x86.apk` | Emulators, some tablets                   |
+| File                                       | For                                           |
+| ------------------------------------------ | --------------------------------------------- |
+| `tempus-degoogled-<version>-universal.apk` | Any device (all CPU architectures in one APK) |
+
+If upstream ever enables per-architecture builds, they appear as `tempus-degoogled-<version>-<abi>.apk` (e.g. `arm64-v8a`) next to the universal one.
 
 ### Verify
 

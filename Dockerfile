@@ -97,7 +97,10 @@ RUN set -eu; \
         ls "$ANDROID_HOME/build-tools" >&2 || true; \
         exit 1; \
     fi; \
-    apk="$(ls app/build/outputs/apk/degoogled/release/*universal*-unsigned.apk)"; \
+    out=app/build/outputs/apk/degoogled/release; \
+    echo "Gradle output:"; ls -l "$out"; \
+    apk="$(find "$out" -maxdepth 1 -name '*.apk' | sort | head -n1)"; \
+    if [ -z "$apk" ]; then echo "No APK in $out" >&2; exit 1; fi; \
     expected="com.eddyizm.degoogled.tempus${APP_ID_SUFFIX}"; \
     "$bt/aapt2" dump badging "$apk" | grep -q "package: name='$expected'" \
         || { echo "Package name mismatch, expected $expected" >&2; exit 1; }; \

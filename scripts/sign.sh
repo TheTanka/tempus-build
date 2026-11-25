@@ -1,5 +1,5 @@
 #!/bin/sh
-# zipalign + apksigner every unsigned release APK into $1.
+# zipalign + apksigner every release APK into $1.
 # Secrets are read from /run/secrets (BuildKit secret mounts), never from layers.
 set -eu
 
@@ -18,12 +18,19 @@ fi
 
 mkdir -p "$out"
 found=0
-for apk in "$apk_dir"/*-release-unsigned.apk; do
+for apk in "$apk_dir"/*.apk; do
     [ -e "$apk" ] || continue
     found=1
-    # app-degoogled-arm64-v8a-release-unsigned.apk -> arm64-v8a
-    abi="$(basename "$apk" -release-unsigned.apk)"
-    abi="${abi#app-degoogled-}"
+    # Gradle names vary with splits and signing config, e.g.
+    #   app-degoogled-release-unsigned.apk             -> universal
+    #   app-degoogled-universal-release-unsigned.apk   -> universal
+    #   app-degoogled-arm64-v8a-release-unsigned.apk   -> arm64-v8a
+    abi="$(basename "$apk" .apk)"
+    abi="${abi%-unsigned}"
+    abi="${abi%-release}"
+    abi="${abi#app-degoogled}"
+    abi="${abi#-}"
+    [ -n "$abi" ] || abi=universal
     dest="$out/tempus-degoogled-$version-$abi.apk"
 
     # -P 16: 16 KB page alignment for native libs (Android 15+)
@@ -31,16 +38,17 @@ for apk in "$apk_dir"/*-release-unsigned.apk; do
     "$bt/apksigner" sign "$@" --out "$dest" /tmp/aligned.apk
     "$bt/apksigner" verify "$dest"
     rm -f /tmp/aligned.apk "$dest.idsig"
-    echo "Signed: $(basename "$dest")"
+    echo "Signed: $(basename "$apk") -> $(basename "$dest")"
 done
 
 if [ "$found" -eq 0 ]; then
-    echo "No unsigned APKs found in $apk_dir" >&2
+    echo "No APKs found in $apk_dir" >&2
     exit 1
 fi
 
 # Certificate info is public anyway (it is inside every APK); kept for release notes.
-"$bt/apksigner" verify --print-certs "$out/tempus-degoogled-$version-universal.apk" \
+first="$(find "$out" -maxdepth 1 -name '*.apk' | sort | head -n1)"
+"$bt/apksigner" verify --print-certs "$first" \
     | grep -E 'DN:|SHA-256' > "$out/signing-cert.txt"
 cat "$out/signing-cert.txt"
 (cd "$out" && sha256sum ./*.apk > SHA256SUMS)
