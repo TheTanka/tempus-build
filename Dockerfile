@@ -1,3 +1,6 @@
+# check=skip=SecretsUsedInArgOrEnv
+# (KEY_ALIAS is only a key name, not a secret; passwords and keystore use --secret)
+#
 # Oneshot build of Tempus (degoogled flavor, release) with a custom icon,
 # signed with your own key. Use ./build.sh, or see it for the raw command.
 
@@ -54,15 +57,17 @@ FROM sdk AS build
 WORKDIR /src
 COPY --from=source /src/ /src/
 
-# Install exactly the platform / build-tools the release asks for.
+# Platform and build-tools are NOT installed here: the Android Gradle plugin
+# downloads exactly what compileSdk/buildToolsVersion need (licenses are
+# accepted in the sdk stage). sdkmanager package names change between Android
+# versions (e.g. android-37 vs android-37.0), AGP always knows the right one.
+# Only remember the build-tools version for zipalign/apksigner later.
 RUN set -eu; \
-    sdk="$(sed -n 's/^ *compileSdk *=* *\([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n1)"; \
     bt="$(sed -n "s/^ *buildToolsVersion *=* *['\"]\([0-9.]*\)['\"].*/\1/p" app/build.gradle | head -n1)"; \
-    if [ -z "$sdk" ] || [ -z "$bt" ]; then \
-        echo "Could not read compileSdk/buildToolsVersion from app/build.gradle" >&2; exit 1; \
+    if [ -z "$bt" ]; then \
+        echo "Could not read buildToolsVersion from app/build.gradle" >&2; exit 1; \
     fi; \
-    echo "compileSdk=$sdk buildTools=$bt"; \
-    sdkmanager --install "platforms;android-$sdk" "build-tools;$bt" "platform-tools" > /dev/null; \
+    echo "buildTools=$bt"; \
     echo "$bt" > /opt/build-tools-version
 
 # Own applicationId so it installs next to the F-Droid build and updates never clash.
@@ -87,6 +92,11 @@ RUN --mount=type=cache,target=/root/.gradle \
 # Fail early if the package name is not what we expect.
 RUN set -eu; \
     bt="$ANDROID_HOME/build-tools/$(cat /opt/build-tools-version)"; \
+    if [ ! -x "$bt/apksigner" ] || [ ! -x "$bt/zipalign" ] || [ ! -x "$bt/aapt2" ]; then \
+        echo "build-tools missing in $bt (Gradle did not install them)" >&2; \
+        ls "$ANDROID_HOME/build-tools" >&2 || true; \
+        exit 1; \
+    fi; \
     apk="$(ls app/build/outputs/apk/degoogled/release/*universal*-unsigned.apk)"; \
     expected="com.eddyizm.degoogled.tempus${APP_ID_SUFFIX}"; \
     "$bt/aapt2" dump badging "$apk" | grep -q "package: name='$expected'" \
