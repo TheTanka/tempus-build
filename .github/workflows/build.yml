@@ -12,8 +12,8 @@ on:
         default: false
 
 permissions:
-  contents: write  # create releases
-  actions: write   # keep the schedule alive
+  contents: write # create releases
+  actions: write # keep the schedule alive
 
 concurrency:
   group: build
@@ -47,7 +47,13 @@ jobs:
           REBUILD: ${{ inputs.rebuild || false }}
         run: |
           set -euo pipefail
-          upstream="$(scripts/latest-tag.sh)"
+          # The release upstream marked as "Latest" (prereleases excluded)
+          upstream="$(gh release view --repo eddyizm/tempus --json tagName --jq .tagName)"
+          if ! printf '%s\n' "$upstream" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Upstream latest release tag '${upstream}' has an unexpected format." >&2
+            echo "Check https://github.com/eddyizm/tempus/releases and adjust the workflow." >&2
+            exit 1
+          fi
           base="${upstream}-${TAG_SUFFIX}"
 
           tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName')"
