@@ -72,14 +72,17 @@ RUN set -eu; \
     echo "$bt" > /opt/build-tools-version
 
 # Own applicationId so it installs next to the F-Droid build and updates never clash.
+# Own versionName suffix (matches the release tag, e.g. 4.32.0-tanka.2) so
+# Obtainium sees rebuilds of the same upstream version as updates.
 ARG APP_ID_SUFFIX=.tanka
+ARG VERSION_NAME_SUFFIX=-tanka
 RUN set -eu; \
     anchor='applicationId = "com.eddyizm.degoogled.tempus"'; \
     if ! grep -qF "$anchor" app/build.gradle; then \
         echo "Upstream changed the degoogled applicationId line, patch needs updating" >&2; exit 1; \
     fi; \
-    sed -i "s|^\( *\)$anchor|&\n\1applicationIdSuffix = \"${APP_ID_SUFFIX}\"|" app/build.gradle; \
-    grep -n -A1 -F "$anchor" app/build.gradle
+    sed -i "s|^\( *\)$anchor|&\n\1applicationIdSuffix = \"${APP_ID_SUFFIX}\"\n\1versionNameSuffix = \"${VERSION_NAME_SUFFIX}\"|" app/build.gradle; \
+    grep -n -A2 -F "$anchor" app/build.gradle
 
 # Custom icon: launcher (foreground, background, monochrome), splash,
 # in-app badge (toolbar, drawer, login) and widget tile.
@@ -114,9 +117,15 @@ RUN set -eu; \
     apk="$(find "$out" -maxdepth 1 -name '*.apk' | sort | head -n1)"; \
     if [ -z "$apk" ]; then echo "No APK in $out" >&2; exit 1; fi; \
     expected="com.eddyizm.degoogled.tempus${APP_ID_SUFFIX}"; \
-    "$bt/aapt2" dump badging "$apk" | grep -q "package: name='$expected'" \
+    base_version="$(sed -n "s/^ *versionName *=* *['\"]\([^'\"]*\)['\"].*/\1/p" app/build.gradle | head -n1)"; \
+    expected_version="${base_version}${VERSION_NAME_SUFFIX}"; \
+    badging="$("$bt/aapt2" dump badging "$apk" | head -n1)"; \
+    echo "$badging"; \
+    echo "$badging" | grep -q "name='$expected'" \
         || { echo "Package name mismatch, expected $expected" >&2; exit 1; }; \
-    echo "Package OK: $expected"
+    echo "$badging" | grep -q "versionName='$expected_version'" \
+        || { echo "versionName mismatch, expected $expected_version" >&2; exit 1; }; \
+    echo "Package OK: $expected $expected_version"
 
 # ---------------------------------------------------------------- sign
 FROM build AS sign

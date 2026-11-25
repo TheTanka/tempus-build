@@ -68,6 +68,7 @@ jobs:
             echo "build=true"
             echo "upstream=${upstream}"
             echo "tag=${tag}"
+            echo "version_suffix=${tag#"$upstream"}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build and sign
@@ -78,6 +79,7 @@ jobs:
           KEY_PASS: ${{ secrets.KEY_PASS }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           TEMPUS_TAG: ${{ steps.plan.outputs.upstream }}
+          VERSION_NAME_SUFFIX: ${{ steps.plan.outputs.version_suffix }}
         run: |
           set -euo pipefail
           if [ -z "$KEYSTORE_B64" ] || [ -z "$KS_PASS" ]; then
@@ -101,6 +103,7 @@ jobs:
           notes="$(cat <<EOF
           Tempus ${UPSTREAM} (degoogled flavor) with a custom icon, signed with my own key.
           Package: com.eddyizm.degoogled.tempus.tanka
+          App version: ${TAG#v}
 
           Upstream changelog: https://github.com/eddyizm/tempus/releases/tag/${UPSTREAM}
 

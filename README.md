@@ -12,6 +12,7 @@ A GitHub Actions workflow checks upstream every 6 hours. When eddyizm publishes 
 |---|---|---|
 | App code | Tempus | Unchanged, built from the upstream release tag |
 | Package name | `com.eddyizm.degoogled.tempus` | `com.eddyizm.degoogled.tempus.tanka` |
+| App version | e.g. `4.32.0` | e.g. `4.32.0-tanka`, rebuilds `4.32.0-tanka.2`, … (same `versionCode` as upstream) |
 | Logo | Tempus logo | Custom logo (`logo.svg`) on black: launcher icon (incl. Android 13+ themed icon), splash screen, in-app logo (toolbar, side drawer, login), home-screen widget |
 | Signing key | F-Droid / upstream | My own key |
 
@@ -25,7 +26,7 @@ Because the package name differs, it installs **next to** an existing Tempus ins
 2. Set **Filter APKs by regular expression** to `universal`.
 3. Install. New upstream releases arrive here within about 6 hours plus build time.
 
-If Obtainium shows a version-detection warning, set **Trim version string** to `\d+\.\d+\.\d+`.
+The app version equals the release tag without the `v` (e.g. `4.32.0-tanka.2`), so rebuilds of the same upstream version arrive as normal updates. Leave **Trim version string** empty; if Obtainium shows a version-detection warning, set it to `[0-9].*`.
 
 ### Manually
 
@@ -52,7 +53,7 @@ The certificate must be the same for every release. Android refuses updates sign
 
 Tempus is licensed under the [GPL-3.0](https://github.com/eddyizm/tempus/blob/main/LICENSE). The complete source of every APK here is the upstream release tag it names, plus the changes made by this repo's build:
 
-- `applicationIdSuffix` added to the degoogled flavor in `app/build.gradle`
+- `applicationIdSuffix` and `versionNameSuffix` added to the degoogled flavor in `app/build.gradle`
 - Icon drawables in `app/src/degoogled/res/drawable/` replaced by the output of `scripts/svg2icons.py`
 
 Bugs in the app itself belong [upstream](https://github.com/eddyizm/tempus/issues). Issues here only for build or icon problems.
@@ -86,6 +87,7 @@ Output goes to `./out/`: the signed APKs, `SHA256SUMS`, `signing-cert.txt`, `ico
 | `KEY_PASS_FILE` / `KEY_PASS` | no | Key password, only if it differs from the keystore password |
 | `KEY_ALIAS` | no | Only needed if the keystore holds several keys |
 | `TEMPUS_TAG` | no | Upstream tag, e.g. `v4.32.0` (default: latest stable) |
+| `VERSION_NAME_SUFFIX` | no | Appended to the app version (default: `-tanka`) |
 
 Extra arguments to `build.sh` are passed on to `docker build`:
 

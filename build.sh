@@ -8,6 +8,8 @@
 #   KEY_PASS_FILE   file containing the key password, if it differs (or KEY_PASS)
 #   KEY_ALIAS       key alias, only needed if the keystore holds several keys
 #   TEMPUS_TAG      upstream tag to build, e.g. v4.32.0 (default: latest stable)
+#   VERSION_NAME_SUFFIX  appended to the app's versionName (default: -tanka),
+#                   the workflow sets -tanka.2 etc. for rebuilds
 #   Any extra args are passed to docker build, e.g.
 #     --build-arg ICON_BG=#1e1e2e      icon background colour
 #     --build-arg ICON_RADIUS=28       logo size inside the safe zone (max 33)
@@ -37,13 +39,15 @@ elif [[ -n "${KEY_PASS:-}" ]]; then
 fi
 
 tag="${TEMPUS_TAG:-$(scripts/latest-tag.sh)}"
-echo "Upstream tag: ${tag}"
+version_suffix="${VERSION_NAME_SUFFIX:--tanka}"
+echo "Upstream tag: ${tag}, versionName suffix: ${version_suffix}"
 
 rm -rf out
 # --no-cache-filter sign: always re-sign, BuildKit does not track secret changes.
 docker build \
     "${secrets[@]}" \
     --build-arg "TEMPUS_TAG=${tag}" \
+    --build-arg "VERSION_NAME_SUFFIX=${version_suffix}" \
     --build-arg "KEY_ALIAS=${KEY_ALIAS:-}" \
     --no-cache-filter sign \
     --output type=local,dest=out \
