@@ -33,7 +33,8 @@ ARG ICON_BG=#000000
 ARG ICON_RADIUS=30
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv run --script svg2icons.py logo.svg out --bg "${ICON_BG}" --radius "${ICON_RADIUS}" \
- && rsvg-convert -w 512 -h 512 out/preview.svg -o out/icon-preview.png
+ && rsvg-convert -w 512 -h 512 out/preview.svg -o out/icon-preview.png \
+ && rsvg-convert -w 1280 out/preview-inapp.svg -o out/icon-preview-inapp.png
 
 # ---------------------------------------------------------------- sdk
 FROM ${JDK_IMAGE} AS sdk
@@ -80,7 +81,8 @@ RUN set -eu; \
     sed -i "s|^\( *\)$anchor|&\n\1applicationIdSuffix = \"${APP_ID_SUFFIX}\"|" app/build.gradle; \
     grep -n -A1 -F "$anchor" app/build.gradle
 
-# Custom icon: foreground, background, monochrome, splash.
+# Custom icon: launcher (foreground, background, monochrome), splash,
+# in-app badge (toolbar, drawer, login) and widget tile.
 COPY --from=icon /work/out/res/ app/src/degoogled/res/
 
 ARG GRADLE_XMX=4g
@@ -118,4 +120,4 @@ RUN --mount=type=secret,id=keystore,required=true \
 # ---------------------------------------------------------------- export
 FROM scratch AS export
 COPY --from=sign /out/ /
-COPY --from=icon /work/out/icon-preview.png /
+COPY --from=icon /work/out/icon-preview.png /work/out/icon-preview-inapp.png /
