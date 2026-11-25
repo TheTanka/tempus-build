@@ -85,11 +85,21 @@ RUN set -eu; \
 # in-app badge (toolbar, drawer, login) and widget tile.
 COPY --from=icon /work/out/res/ app/src/degoogled/res/
 
+# Retries cover transient repository hiccups (plugin portal, Maven Central,
+# Google Maven), which Gradle reports as "plugin/artifact not found".
 ARG GRADLE_XMX=4g
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew --no-daemon --console=plain \
-        -Dorg.gradle.jvmargs="-Xmx${GRADLE_XMX}" \
-        assembleDegoogledRelease
+    set -eu; \
+    for attempt in 1 2 3; do \
+        if ./gradlew --no-daemon --console=plain \
+            -Dorg.gradle.jvmargs="-Xmx${GRADLE_XMX}" \
+            assembleDegoogledRelease; then \
+            exit 0; \
+        fi; \
+        echo "Gradle attempt $attempt of 3 failed" >&2; \
+        if [ "$attempt" -lt 3 ]; then sleep $((attempt * 30)); fi; \
+    done; \
+    exit 1
 
 # Fail early if the package name is not what we expect.
 RUN set -eu; \
